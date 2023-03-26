@@ -1,24 +1,18 @@
 package com.example.storemonitoring.controller;
 
 import com.example.storemonitoring.common.Constants;
+import com.example.storemonitoring.service.ImportCSVService;
 import org.springframework.batch.core.Job;
-import org.springframework.batch.core.JobParameters;
-import org.springframework.batch.core.JobParametersBuilder;
-import org.springframework.batch.core.JobParametersInvalidException;
-import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
-import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
-import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.File;
-import java.io.IOException;
 
 /**
  * This controller will be used to upload required CSV files to the database.
@@ -26,9 +20,6 @@ import java.io.IOException;
 @RestController
 @RequestMapping("/import")
 public class ImportCSVController {
-
-    @Autowired
-    private JobLauncher jobLauncher;
 
     @Autowired
     @Qualifier(Constants.STORE_HOURS_IMPORT_JOB_NAME)
@@ -42,39 +33,73 @@ public class ImportCSVController {
     @Qualifier(Constants.STORE_TIMEZONE_IMPORT_JOB_NAME)
     private Job storeTimezoneImportJob;
 
-    private final String TEMP_STORAGE = "C:/Users/Aniket/Desktop/batch-files/";
+    @Autowired
+    private ImportCSVService importCSVService;
+
+    @Value("${project.csv}")
+    private String path;
 
     @PostMapping("/store-hours")
-    public void importStoreHoursCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) throws IOException {
-        importCSVToDatabase(storeHoursImportJob, multipartFile);
+    public ResponseEntity<String> importStoreHoursCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) {
+        // validation
+        if(multipartFile.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Empty file");
+        }
+        if(!multipartFile.getContentType().equals("text/csv")) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Only CSV files are allowed");
+        }
+        //upload and import
+        try{
+            uploadAndImportCSVFile(storeHoursImportJob, multipartFile);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Some error happened");
+        }
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body("CSV file uploaded successfully");
     }
 
     @PostMapping("/store-status")
-    public void importStoreStatusCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) throws IOException {
-        importCSVToDatabase(storeStatusImportJob, multipartFile);
+    public ResponseEntity<String> importStoreStatusCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) {
+        // validation
+        if(multipartFile.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Empty file");
+        }
+        if(!multipartFile.getContentType().equals("text/csv")) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Only CSV files are allowed");
+        }
+        //upload and import
+        try{
+            uploadAndImportCSVFile(storeStatusImportJob, multipartFile);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Some error happened");
+        }
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body("CSV file uploaded successfully");
     }
 
     @PostMapping("/store-timezone")
-    public void importStoreTimezoneCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) throws IOException {
-        importCSVToDatabase(storeTimezoneImportJob, multipartFile);
+    public ResponseEntity<String> importStoreTimezoneCSVToDatabase(@RequestParam("file") MultipartFile multipartFile) {
+        // validation
+        if(multipartFile.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Empty file");
+        }
+        if(!multipartFile.getContentType().equals("text/csv")) {
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body("Only CSV files are allowed");
+        }
+        //upload and import
+        try{
+            uploadAndImportCSVFile(storeTimezoneImportJob, multipartFile);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Some error happened");
+        }
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body("CSV file uploaded successfully");
     }
 
-    private void importCSVToDatabase(Job jobToLaunch, MultipartFile multipartFile) throws IOException {
-        String originalFileName = multipartFile.getOriginalFilename();
-        File fileToImport = new File(TEMP_STORAGE+originalFileName);
-        multipartFile.transferTo(fileToImport);
-
-        JobParameters jobParameters = new JobParametersBuilder()
-                .addString("fullPathFileName", TEMP_STORAGE+originalFileName)
-                .addLong("startAt", System.currentTimeMillis()).toJobParameters();
-
-        try {
-            jobLauncher.run(jobToLaunch, jobParameters);
-        } catch (JobExecutionAlreadyRunningException | JobRestartException | JobInstanceAlreadyCompleteException |
-                 JobParametersInvalidException e) {
-            e.printStackTrace();
-            throw new RuntimeException(e);
-        }
+    private void uploadAndImportCSVFile(Job jobToLaunch, MultipartFile multipartFile) throws Exception {
+        String fullFilePath = importCSVService.uploadMultipartFile(path, multipartFile);
+        importCSVService.importCSVToDatabase(jobToLaunch, fullFilePath);
+        importCSVService.deleteUploadedFile(fullFilePath);
     }
 
 }

@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+
+##uploaded csv files
+/csv/
