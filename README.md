@@ -8,6 +8,7 @@ A spring-boot application in which user can generate reports regarding store upt
   * _db_url_
   * _db_username_
   * _db_password_
+* Ensure you have **Java** installed and setup in your system.
 * Go to root directory of this project using terminal.
 * Run command:- `./mvnw spring-boot:run`
 * Application will start on port 8081.
